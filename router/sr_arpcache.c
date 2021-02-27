@@ -10,6 +10,50 @@
 #include "sr_router.h"
 #include "sr_if.h"
 #include "sr_protocol.h"
+#include "sr_rt.h"
+
+
+void handle_arpreq(struct sr_instance* sr, struct sr_arpreq* req) {
+    time_t now;
+    time(&now);
+    if(difftime(now, req->sent) >= 1.0) {
+        if(req->times_sent >= 5){
+            //send icmp host unreachable to source addr of all pkts waiting on this request
+            for(struct sr_packet* pkt = req->packets; pkt != NULL; pkt = pkt->next){
+                reply_icmp(sr, pkt->buf, icmptype_unreachable, 1);
+            }
+            sr_arpreq_destroy(&sr->cache, req); // after sending all icmp msgs, destroy the req
+        } else {
+            //send arp request
+            uint8_t* pkt_to_send = (uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+            memset(pkt_to_send, 0, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+            // first cast and set ethernet hdr
+            struct sr_ethernet_hdr* ethernet_hdr_to_send = (struct sr_ethernet_hdr*)pkt_to_send;
+            struct sr_arp_hdr* arp_hdr_to_send = (struct sr_arp_hdr*) (pkt_to_send + sizeof(struct sr_ethernet_hdr));
+            // in one req, all packets are headed for the same IP and uses the same interface
+            // hence just grab the interface from the front packet
+            char* if_name = req->packets->iface;
+            struct sr_if* interface = sr_get_interface(sr, if_name);
+            sr_set_ethernet_hdr(ethernet_hdr_to_send, 0, interface->addr, ethertype_arp); // 0 stands for broadcast
+            sr_set_arp_hdr(arp_hdr_to_send,
+                arp_hrd_ethernet,
+                0x800,
+                ETHER_ADDR_LEN,
+                (unsigned char)4,
+                arp_op_request,
+                interface->addr,
+                ntohl(interface->ip),
+                0,
+                ntohl(req->ip)
+            );
+            sr_send_packet(sr, pkt_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), if_name);
+            free(pkt_to_send);
+            req->sent = now;
+            req->times_sent++;            
+        }
+    }
+}
+
 
 /* 
   This function gets called every second. For each request sent out, we keep
@@ -18,7 +62,9 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* TODO: FILL IN YOUR CODE HERE */
-
+    for(struct sr_arpreq* request = sr->cache.requests; request != NULL; request = request->next){
+        handle_arpreq(sr, request);
+    }
     /* You should not need to touch the rest of this code. */
 }
 

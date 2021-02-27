@@ -74,4 +74,39 @@ void sr_set_ether_ip(struct sr_instance* , uint32_t );
 void sr_set_ether_addr(struct sr_instance* , const unsigned char* );
 void sr_print_if_list(struct sr_instance* );
 
+// my fxn
+void sr_handle_arp_pkt(struct sr_instance* sr, uint8_t* packet, char* interface);
+char* sr_is_packet_for_me(struct sr_instance* sr, uint32_t dest_ip);
+void sr_set_ethernet_hdr(struct sr_ethernet_hdr* ethernet_hdr_to_send, unsigned char* dest_mac_addr, uint8_t* src_mac_addr, uint16_t ether_type);
+void sr_set_arp_hdr(struct sr_arp_hdr* pkt,
+    unsigned short out_hrd,
+    unsigned short out_pro,
+    unsigned char out_hln,
+    unsigned char out_pln,
+    unsigned short out_op,
+    unsigned char* out_sha,
+    uint32_t out_sip,
+    unsigned char* out_tha,
+    uint32_t out_tip
+);
+void sr_set_icmp_hdr(struct sr_icmp_hdr* icmp_hdr, uint8_t* oringin_packet, uint8_t icmp_type, uint8_t icmp_code);
+struct sr_rt* sr_LPM(struct sr_instance* sr, uint32_t ip);
+void sr_set_ip_hdr(struct sr_ip_hdr* pkt_to_send,
+    uint16_t ip_len,
+    uint16_t ip_id,
+    uint16_t ip_off,
+    uint8_t ip_ttl,
+    uint8_t ip_p,
+    uint32_t ip_src,
+    uint32_t ip_dst
+);
+
+void reply_icmp(struct sr_instance* sr, uint8_t* origin_packet, uint8_t type, uint8_t icmp_code);
+struct sr_ip_hdr* ip_header(uint8_t* packet);
+struct sr_icmp_hdr* icmp_header(uint8_t* packet);
+struct sr_icmp_t3_hdr* icmp_t3_header(uint8_t* packet);
+struct sr_ethernet_hdr* eth_header(uint8_t* packet);
+struct sr_arp_hdr* arp_header(uint8_t* packet);
+struct sr_if* lookup_interface(struct sr_instance* sr, uint32_t ip);
+
 #endif /* SR_ROUTER_H */
